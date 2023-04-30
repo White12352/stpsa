@@ -26,7 +26,6 @@ var (
 
 type URLTest struct {
 	myOutboundAdapter
-	ctx       context.Context
 	tags      []string
 	link      string
 	interval  time.Duration
@@ -34,7 +33,7 @@ type URLTest struct {
 	group     *URLTestGroup
 }
 
-func NewURLTest(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.URLTestOutboundOptions) (*URLTest, error) {
+func NewURLTest(router adapter.Router, logger log.ContextLogger, tag string, options option.URLTestOutboundOptions) (*URLTest, error) {
 	outbound := &URLTest{
 		myOutboundAdapter: myOutboundAdapter{
 			protocol: C.TypeURLTest,
@@ -42,7 +41,6 @@ func NewURLTest(ctx context.Context, router adapter.Router, logger log.ContextLo
 			logger:   logger,
 			tag:      tag,
 		},
-		ctx:       ctx,
 		tags:      options.Outbounds,
 		link:      options.URL,
 		interval:  time.Duration(options.Interval),
@@ -70,7 +68,7 @@ func (s *URLTest) Start() error {
 		}
 		outbounds = append(outbounds, detour)
 	}
-	s.group = NewURLTestGroup(s.ctx, s.router, s.logger, outbounds, s.link, s.interval, s.tolerance)
+	s.group = NewURLTestGroup(s.router, s.logger, outbounds, s.link, s.interval, s.tolerance)
 	return s.group.Start()
 }
 
@@ -99,7 +97,14 @@ func (s *URLTest) DialContext(ctx context.Context, network string, destination M
 		return conn, nil
 	}
 	s.logger.ErrorContext(ctx, err)
-	s.group.history.DeleteURLTestHistory(outbound.Tag())
+	go s.group.checkOutbounds()
+	outbounds := s.group.Fallback(outbound)
+	for _, fallback := range outbounds {
+		conn, err = fallback.DialContext(ctx, network, destination)
+		if err == nil {
+			return conn, nil
+		}
+	}
 	return nil, err
 }
 
@@ -110,7 +115,14 @@ func (s *URLTest) ListenPacket(ctx context.Context, destination M.Socksaddr) (ne
 		return conn, nil
 	}
 	s.logger.ErrorContext(ctx, err)
-	s.group.history.DeleteURLTestHistory(outbound.Tag())
+	go s.group.checkOutbounds()
+	outbounds := s.group.Fallback(outbound)
+	for _, fallback := range outbounds {
+		conn, err = fallback.ListenPacket(ctx, destination)
+		if err == nil {
+			return conn, nil
+		}
+	}
 	return nil, err
 }
 
@@ -123,7 +135,6 @@ func (s *URLTest) NewPacketConnection(ctx context.Context, conn N.PacketConn, me
 }
 
 type URLTestGroup struct {
-	ctx       context.Context
 	router    adapter.Router
 	logger    log.Logger
 	outbounds []adapter.Outbound
@@ -136,7 +147,11 @@ type URLTestGroup struct {
 	close  chan struct{}
 }
 
-func NewURLTestGroup(ctx context.Context, router adapter.Router, logger log.Logger, outbounds []adapter.Outbound, link string, interval time.Duration, tolerance uint16) *URLTestGroup {
+func NewURLTestGroup(router adapter.Router, logger log.Logger, outbounds []adapter.Outbound, link string, interval time.Duration, tolerance uint16) *URLTestGroup {
+	if link == "" {
+		//goland:noinspection HttpUrlsUsage
+		link = "http://www.gstatic.com/generate_204"
+	}
 	if interval == 0 {
 		interval = C.DefaultURLTestInterval
 	}
@@ -150,7 +165,6 @@ func NewURLTestGroup(ctx context.Context, router adapter.Router, logger log.Logg
 		history = urltest.NewHistoryStorage()
 	}
 	return &URLTestGroup{
-		ctx:       ctx,
 		router:    router,
 		logger:    logger,
 		outbounds: outbounds,
@@ -240,7 +254,7 @@ func (g *URLTestGroup) loopCheck() {
 }
 
 func (g *URLTestGroup) checkOutbounds() {
-	_, _ = g.URLTest(g.ctx, g.link)
+	_, _ = g.URLTest(context.Background(), g.link)
 }
 
 func (g *URLTestGroup) URLTest(ctx context.Context, link string) (map[string]uint16, error) {
