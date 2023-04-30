@@ -102,6 +102,8 @@ nav:
           - DNS: configuration/outbound/dns.md
           - Selector: configuration/outbound/selector.md
           - URLTest: configuration/outbound/urltest.md
+      - Provider:
+          - configuration/provider/index.md
   - FAQ:
       - faq/index.md
       - FakeIP: faq/fakeip.md

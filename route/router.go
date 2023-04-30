@@ -49,6 +49,8 @@ type Router struct {
 	inboundByTag                       map[string]adapter.Inbound
 	outbounds                          []adapter.Outbound
 	outboundByTag                      map[string]adapter.Outbound
+	providers                          []adapter.Provider
+	providerByTag                      map[string]adapter.Provider
 	rules                              []adapter.Rule
 	ipRules                            []adapter.IPRule
 	defaultDetour                      string
@@ -328,7 +330,7 @@ func NewRouter(
 	return router, nil
 }
 
-func (r *Router) Initialize(inbounds []adapter.Inbound, outbounds []adapter.Outbound, defaultOutbound func() adapter.Outbound) error {
+func (r *Router) Initialize(inbounds []adapter.Inbound, outbounds []adapter.Outbound, providers []adapter.Provider, defaultOutbound func() adapter.Outbound) error {
 	inboundByTag := make(map[string]adapter.Inbound)
 	for _, inbound := range inbounds {
 		inboundByTag[inbound.Tag()] = inbound
@@ -336,6 +338,10 @@ func (r *Router) Initialize(inbounds []adapter.Inbound, outbounds []adapter.Outb
 	outboundByTag := make(map[string]adapter.Outbound)
 	for _, detour := range outbounds {
 		outboundByTag[detour.Tag()] = detour
+	}
+	providerByTag := make(map[string]adapter.Provider)
+	for _, provider := range providers {
+		providerByTag[provider.Tag()] = provider
 	}
 	var defaultOutboundForConnection adapter.Outbound
 	var defaultOutboundForPacketConnection adapter.Outbound
@@ -399,9 +405,11 @@ func (r *Router) Initialize(inbounds []adapter.Inbound, outbounds []adapter.Outb
 	}
 	r.inboundByTag = inboundByTag
 	r.outbounds = outbounds
+	r.providers = providers
 	r.defaultOutboundForConnection = defaultOutboundForConnection
 	r.defaultOutboundForPacketConnection = defaultOutboundForPacketConnection
 	r.outboundByTag = outboundByTag
+	r.providerByTag = providerByTag
 	for i, rule := range r.rules {
 		if _, loaded := outboundByTag[rule.Outbound()]; !loaded {
 			return E.New("outbound not found for rule[", i, "]: ", rule.Outbound())
@@ -412,6 +420,10 @@ func (r *Router) Initialize(inbounds []adapter.Inbound, outbounds []adapter.Outb
 
 func (r *Router) Outbounds() []adapter.Outbound {
 	return r.outbounds
+}
+
+func (r *Router) Providers() []adapter.Provider {
+	return r.providers
 }
 
 func (r *Router) Start() error {
@@ -572,6 +584,11 @@ func (r *Router) DefaultOutbound(network string) adapter.Outbound {
 
 func (r *Router) FakeIPStore() adapter.FakeIPStore {
 	return r.fakeIPStore
+}
+
+func (r *Router) Provider(tag string) (adapter.Provider, bool) {
+	provider, loaded := r.providerByTag[tag]
+	return provider, loaded
 }
 
 func (r *Router) RouteConnection(ctx context.Context, conn net.Conn, metadata adapter.InboundContext) error {

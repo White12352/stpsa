@@ -20,6 +20,8 @@ type Router interface {
 	Outbounds() []Outbound
 	Outbound(tag string) (Outbound, bool)
 	DefaultOutbound(network string) Outbound
+	Providers() []Provider
+	Provider(tag string) (Provider, bool)
 
 	FakeIPStore() FakeIPStore
 

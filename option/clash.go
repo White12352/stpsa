@@ -12,14 +12,41 @@ type ClashAPIOptions struct {
 	CacheFile                string `json:"cache_file,omitempty"`
 }
 
-type SelectorOutboundOptions struct {
+type Provider struct {
+	Tag            string   `json:"tag"`
+	URL            string   `json:"url"`
+	Interval       Duration `json:"interval,omitempty"`
+	CacheFile      string   `json:"cache_file,omitempty"`
+	DownloadDetour string   `json:"download_detour,omitempty"`
+
+	Exclude string `json:"exclude,omitempty"`
+	Include string `json:"include,omitempty"`
+
+	DialerOptions
+}
+
+type GroupCommonOption struct {
 	Outbounds []string `json:"outbounds"`
-	Default   string   `json:"default,omitempty"`
+	Providers []string `json:"providers"`
+}
+
+type SelectorOutboundOptions struct {
+	GroupCommonOption
+	Default string `json:"default,omitempty"`
 }
 
 type URLTestOutboundOptions struct {
-	Outbounds []string `json:"outbounds"`
+	GroupCommonOption
 	URL       string   `json:"url,omitempty"`
 	Interval  Duration `json:"interval,omitempty"`
 	Tolerance uint16   `json:"tolerance,omitempty"`
+}
+
+// HealthCheckOptions is the settings for health check
+type HealthCheckOptions struct {
+	Interval     Duration `json:"interval"`
+	Sampling     uint     `json:"sampling"`
+	Destination  string   `json:"destination"`
+	Connectivity string   `json:"connectivity"`
+	DetourOf     string   `json:"detour_of,omitempty"`
 }
