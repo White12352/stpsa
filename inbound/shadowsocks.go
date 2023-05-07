@@ -39,8 +39,8 @@ var (
 
 type Shadowsocks struct {
 	myInboundAdapter
-	plugin          sip003.Plugin
 	service shadowsocks.Service
+	plugin sip003.Plugin
 }
 
 func newShadowsocks(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.ShadowsocksInboundOptions) (*Shadowsocks, error) {
@@ -63,26 +63,23 @@ func newShadowsocks(ctx context.Context, router adapter.Router, logger log.Conte
 	} else {
 		udpTimeout = int64(C.UDPTimeout.Seconds())
 	}
-	var plugin sip003.Plugin
-	if options.Plugin != nil {
-		plugin, err = sip003.NewPlugin(options.Plugin)
+	var err error
+	if options.Plugin != "" {
+		inbound.plugin, err = sip003.CreatePlugin(options.Plugin, options.PluginOptions, router, inbound.dialer, inbound.serverAddr)
 		if err != nil {
-		return nil, err
+			return nil, err
 		}
 	}
-	var err error
 	switch {
 	case options.Method == shadowsocks.MethodNone:
-		inbound.service = shadowsocks.NewNoneService(options.UDPTimeout, inbound.upstreamContextHandler(), plugin)
+		inbound.service = shadowsocks.NewNoneService(options.UDPTimeout, inbound.upstreamContextHandler())
 	case common.Contains(shadowaead.List, options.Method):
-		inbound.service, err = shadowaead.NewService(options.Method, nil, options.Password, udpTimeout, inbound.upstreamContextHandler(), plugin)
+		inbound.service, err = shadowaead.NewService(options.Method, nil, options.Password, udpTimeout, inbound.upstreamContextHandler())
 	case common.Contains(shadowaead_2022.List, options.Method):
-		inbound.service, err = shadowaead_2022.NewServiceWithPassword(options.Method, options.Password, udpTimeout, inbound.upstreamContextHandler(), router.TimeFunc(), plugin)
+		inbound.service, err = shadowaead_2022.NewServiceWithPassword(options.Method, options.Password, udpTimeout, inbound.upstreamContextHandler(), router.TimeFunc())
 	default:
 		err = E.New("unsupported method: ", options.Method)
 	}
-	inbound.service.Plugin = plugin
-	inbound.plugin = plugin
 	inbound.packetUpstream = inbound.service
 	return inbound, err
 }
