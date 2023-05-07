@@ -38,6 +38,7 @@ var (
 
 type Shadowsocks struct {
 	myInboundAdapter
+	plugin          sip003.Plugin
 	service shadowsocks.Service
 }
 
@@ -61,17 +62,26 @@ func newShadowsocks(ctx context.Context, router adapter.Router, logger log.Conte
 	} else {
 		udpTimeout = int64(C.UDPTimeout.Seconds())
 	}
+	var plugin sip003.Plugin
+	if options.Plugin != nil {
+		plugin, err = sip003.NewPlugin(options.Plugin)
+		if err != nil {
+		return nil, err
+		}
+	}
 	var err error
 	switch {
 	case options.Method == shadowsocks.MethodNone:
-		inbound.service = shadowsocks.NewNoneService(options.UDPTimeout, inbound.upstreamContextHandler())
+		inbound.service = shadowsocks.NewNoneService(options.UDPTimeout, inbound.upstreamContextHandler(), plugin)
 	case common.Contains(shadowaead.List, options.Method):
-		inbound.service, err = shadowaead.NewService(options.Method, nil, options.Password, udpTimeout, inbound.upstreamContextHandler())
+		inbound.service, err = shadowaead.NewService(options.Method, nil, options.Password, udpTimeout, inbound.upstreamContextHandler(), plugin)
 	case common.Contains(shadowaead_2022.List, options.Method):
-		inbound.service, err = shadowaead_2022.NewServiceWithPassword(options.Method, options.Password, udpTimeout, inbound.upstreamContextHandler(), router.TimeFunc())
+		inbound.service, err = shadowaead_2022.NewServiceWithPassword(options.Method, options.Password, udpTimeout, inbound.upstreamContextHandler(), router.TimeFunc(), plugin)
 	default:
 		err = E.New("unsupported method: ", options.Method)
 	}
+	inbound.service.Plugin = plugin
+	inbound.plugin = plugin
 	inbound.packetUpstream = inbound.service
 	return inbound, err
 }
