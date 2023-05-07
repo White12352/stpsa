@@ -40,7 +40,6 @@ var (
 type Shadowsocks struct {
 	myInboundAdapter
 	service shadowsocks.Service
-	plugin sip003.Plugin
 }
 
 func newShadowsocks(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.ShadowsocksInboundOptions) (*Shadowsocks, error) {
@@ -53,6 +52,7 @@ func newShadowsocks(ctx context.Context, router adapter.Router, logger log.Conte
 			logger:        logger,
 			tag:           tag,
 			listenOptions: options.ListenOptions,
+			plugin:           sip003.Plugin,
 		},
 	}
 	inbound.connHandler = inbound
