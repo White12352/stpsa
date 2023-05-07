@@ -39,6 +39,7 @@ var (
 
 type Shadowsocks struct {
 	myInboundAdapter
+	plugin          sip003.Plugin
 	service shadowsocks.Service
 }
 
@@ -64,12 +65,6 @@ func newShadowsocks(ctx context.Context, router adapter.Router, logger log.Conte
 		udpTimeout = int64(C.UDPTimeout.Seconds())
 	}
 	var err error
-	if options.Plugin != "" {
-		inbound.plugin, err = sip003.CreatePlugin(options.Plugin, options.PluginOptions, router, inbound.dialer, inbound.serverAddr)
-		if err != nil {
-			return nil, err
-		}
-	}
 	switch {
 	case options.Method == shadowsocks.MethodNone:
 		inbound.service = shadowsocks.NewNoneService(options.UDPTimeout, inbound.upstreamContextHandler())
